@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+mp_env/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+dist/
+build/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# MediaPipe / ML Models
+*.task
+*.tflite
+checkpoint/
+digit_model_v1/
+
+# Datasets
+hand_digits_data/
+dataset/
+*.zip
+*.csv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -27,7 +27,7 @@ digit_model_v1/
 hand_digits_data/
 dataset/
 *.zip
-*.csv
+# *.csv
 
 # IDEs
 .vscode/
@@ -38,3 +38,4 @@ dataset/
 # OS
 .DS_Store
 Thumbs.db
+external/

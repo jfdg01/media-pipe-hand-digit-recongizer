@@ -1,0 +1,6 @@
+[submodule "external/hand-gesture-recognition"]
+	path = external/hand-gesture-recognition
+	url = https://github.com/maelsilvatt/hand-gesture-recognition.git
+[submodule "external/ardamavi-sign-digits"]
+	path = external/ardamavi-sign-digits
+	url = https://github.com/ardamavi/Sign-Language-Digits-Dataset.git

@@ -94,7 +94,7 @@ Building a dataset from scratch is often unnecessary due to the availability of 
 | :---- | :---- | :---- | :---- |
 | Fingers Image Dataset | [Kaggle](https://www.kaggle.com/datasets/koryakinp/fingers) | 21,600 images (0–5 fingers) | 128x128 PNG.23 |
 | Number Gestures 1–5 | [Kaggle](https://www.kaggle.com/datasets/uom190653l/number-gestures-1-5-hand-landmark-dataset) | Pre-processed landmarks for digits 1–5 | CSV/Images.24 |
-| ASL Sign Language Detection | (https://universe.roboflow.com/unipi-4sk4y/asl-sign-language-detection) | 475 images, 19 classes (includes digits) | Object Detection/COCO.25 |
+| ASL Sign Language Detection | (<https://universe.roboflow.com/unipi-4sk4y/asl-sign-language-detection>) | 475 images, 19 classes (includes digits) | Object Detection/COCO.25 |
 | Leap Gesture Recognition | [Kaggle](https://www.kaggle.com/datasets/gti-upm/leapgestrecog) | 10 gestures from 10 subjects | Infra-red PNG.27 |
 | HGR Dataset | [Kaggle](https://www.kaggle.com/datasets/nizamuddinmaitlo/hgr-dataset) | Standard camera hand images | JPEG/CSV.28 |
 
@@ -131,7 +131,7 @@ dataset\_path \= "hand\_digits\_data/"
 \# Configure preprocessing parameters  
 \# Increase min\_detection\_confidence if the dataset has noisy backgrounds \[20, 29\]  
 data\_hparams \= gesture\_recognizer.HandDataPreprocessingParams(  
-    shuffle=True,   
+    shuffle=True,
     min\_detection\_confidence=0.8  
 )
 
@@ -248,7 +248,7 @@ options \= vision.GestureRecognizerOptions(
 with vision.GestureRecognizer.create\_from\_options(options) as recognizer:  
     \# Load input image from a file  
     mp\_image \= mp.Image.create\_from\_file('test\_digit\_one.jpg')  
-      
+
     \# Perform recognition  
     recognition\_result \= recognizer.recognize(mp\_image)  
       

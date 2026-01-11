@@ -10,8 +10,8 @@ A multimodal app that lets you **speak a film name**, then **rate it with hand g
 # 1. Activate virtual environment
 source venv/bin/activate
 
-# 2. Run in test mode (no API key or camera needed)
-python src/main.py --mock --keyboard
+# 2. Run the app (environment variables are loaded automatically from .env)
+python src/main.py
 ```
 
 ---
@@ -25,43 +25,54 @@ python src/main.py --mock --keyboard
 
 ---
 
+## Environment Setup
+
+Create a `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your settings:
+
+```bash
+# Required: OMDb API key (get free at https://www.omdbapi.com/apikey.aspx)
+OMDB_API_KEY=your_api_key_here
+
+# Optional: Phone camera URL (if using IP Webcam app)
+CAMERA_URL=http://192.168.1.100:8080/video
+```
+
+**Note:** The app automatically loads `.env` - no need to run `source .env`!
+
+---
+
 ## Running Modes
 
-### 🧪 Full Test Mode (no hardware needed)
+### 🎤 Full Experience (Speech + Camera)
 
 ```bash
-python src/main.py --mock --keyboard
+python -m src.main
 ```
 
-Uses mock data for everything. Type the film name instead of speaking.
+Uses your microphone for speech and camera for gestures.
 
-### 🎤 With Speech Recognition
+### ⌨️ Keyboard Mode
 
 ```bash
-python src/main.py --mock
+python -m src.main --keyboard
 ```
 
-Uses your computer's microphone. Say the film name in Spanish.
+Type the film name instead of speaking.
 
 ### 📱 With Phone Camera
 
-```bash
-# Set your phone's IP webcam URL in .env
-CAMERA_URL=http://192.168.1.100:8080/video
+Set `CAMERA_URL` in your `.env` file, then run normally.
 
-# Then run
-source .env
-python src/main.py --mock-filmdb
-```
-
-### 🌐 Full Production Mode
+### 🌍 Different Language
 
 ```bash
-# Set your OMDb API key in .env
-OMDB_API_KEY=your_key_here
-
-source .env
-python src/main.py
+python -m src.main --language en-US
 ```
 
 ---
@@ -70,26 +81,9 @@ python src/main.py
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--mock` | `-m` | Enable all mock modes |
-| `--mock-camera` | | Use test images instead of camera |
-| `--mock-filmdb` | | Use mock film data instead of API |
 | `--keyboard` | `-k` | Type film name instead of speaking |
-| `--camera-url URL` | `-c` | Phone camera stream URL |
+| `--camera-url URL` | `-c` | Phone camera stream URL (overrides .env) |
 | `--language CODE` | `-l` | Speech language (default: `es-ES`) |
-
----
-
-## Available Mock Films
-
-When using `--mock-filmdb`, these films are available:
-
-| Say | Gets |
-|-----|------|
-| "Matrix" | The Matrix (1999) |
-| "Inception" | Inception (2010) |
-| "Interestelar" | Interstellar (2014) |
-| "Pulp Fiction" | Pulp Fiction (1994) |
-| "El Padrino" | The Godfather (1972) |
 
 ---
 
@@ -124,7 +118,27 @@ Use "EpocCam" or "Camo" app (similar process).
 
 ---
 
+## Project Structure
+
+```
+src/
+├── main.py         # CLI entry point
+├── controller.py   # Main orchestration
+├── models.py       # Data classes
+├── speech.py       # Speech recognition
+├── film_api.py     # OMDb API integration
+├── gestures.py     # Hand gesture recognition
+└── display.py      # Result visualization
+```
+
+---
+
 ## Troubleshooting
+
+### "OMDB_API_KEY not set"
+
+- Get a free key at <https://www.omdbapi.com/apikey.aspx>
+- Add to `.env`: `OMDB_API_KEY=your_key`
 
 ### "No speech detected"
 
@@ -135,22 +149,14 @@ Use "EpocCam" or "Camo" app (similar process).
 ### "Could not open camera"
 
 - Your webcam may be in use by another app
-- Try `--mock-camera` to use test images
 - For phone camera, check the URL and WiFi connection
+- Make sure IP Webcam app is running on your phone
+
+### "ImportError: attempted relative import"
+
+- Run as a module: `python -m src.main` (not `python src/main.py`)
 
 ### "Film not found"
 
 - Check the spelling
-- In mock mode, only 5 films are available (see list above)
-- In production mode, ensure your API key is set
-
----
-
-## File Locations
-
-| What | Where |
-|------|-------|
-| Main app | `src/main.py` |
-| Test images | `data/test_images/` |
-| Gesture model | `models/gesture_recognizer.task` |
-| Environment vars | `.env` |
+- Try the English title

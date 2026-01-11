@@ -264,10 +264,12 @@ class GestureRecognizer:
     }
     
     def __init__(self, model_path: str = "models/gesture_recognizer.task", 
-                 use_mock: bool = False, test_data_path: str = "data/test_images"):
+                 use_mock: bool = False, test_data_path: str = "data/test_images",
+                 camera_url: str = None):
         self.model_path = model_path
         self.use_mock = use_mock
         self.test_data_path = test_data_path
+        self.camera_url = camera_url  # For IP Webcam (phone camera)
         self.recognizer = None
         
         if os.path.exists(model_path):
@@ -365,9 +367,19 @@ class GestureRecognizer:
             print("❌ Gesture recognizer not initialized.")
             return self._fallback_input()
         
-        cap = cv2.VideoCapture(0)
+        # Use phone camera URL if provided, otherwise use local webcam
+        if self.camera_url:
+            print(f"📱 Connecting to phone camera: {self.camera_url}")
+            cap = cv2.VideoCapture(self.camera_url)
+        else:
+            cap = cv2.VideoCapture(0)
+            
         if not cap.isOpened():
-            print("❌ Could not open camera.")
+            if self.camera_url:
+                print(f"❌ Could not connect to phone camera at {self.camera_url}")
+                print("   Make sure IP Webcam is running and the URL is correct.")
+            else:
+                print("❌ Could not open camera.")
             return self._fallback_input()
         
         print("\n✋ Show your score (1-5 fingers) to the camera...")
@@ -384,6 +396,10 @@ class GestureRecognizer:
                 ret, frame = cap.read()
                 if not ret:
                     break
+                
+                # Flip vertically if using phone camera (IP Webcam orientation fix)
+                if self.camera_url:
+                    frame = cv2.flip(frame, 0)  # 0 = vertical flip
                 
                 # Check timeout
                 elapsed = time.time() - start_time
@@ -551,10 +567,14 @@ class DisplayManager:
         print(f"📊 YOUR SCORE: {'★' * user_score}{'☆' * (5 - user_score)} ({user_score}/5)")
         print(f"{'='*50}")
         
-        # Create fullscreen window
+        # Create fullscreen window with better Wayland compatibility
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.moveWindow(window_name, 0, 0)  # Move to top-left corner
         cv2.imshow(window_name, display)
+        
+        # Force maximize by setting window to a large size
+        cv2.resizeWindow(window_name, 1920, 1080)
         print("\nPress any key to close (auto-closes in 10 seconds)...")
         
         # Use a loop with timeout to handle key events (fixes Wayland/Qt issues)
@@ -583,18 +603,22 @@ class FilmRatingController:
     Main controller that orchestrates the multimodal film rating experience.
     """
     
-    def __init__(self, use_mock: bool = False, language: str = "es-ES"):
+    def __init__(self, mock_camera: bool = False, mock_filmdb: bool = False, 
+                 language: str = "es-ES", camera_url: str = None):
         """
         Initialize the controller.
         
         Args:
-            use_mock: If True, use mock film data instead of real API.
+            mock_camera: If True, use random test images instead of real camera.
+            mock_filmdb: If True, use mock film data instead of real API.
             language: Language code for speech recognition.
+            camera_url: URL for IP Webcam (phone camera), e.g., 'http://192.168.1.100:8080/video'
         """
-        self.use_mock = use_mock
+        self.mock_camera = mock_camera
+        self.mock_filmdb = mock_filmdb
         self.speech = SpeechRecognizer(language=language)
-        self.films = FilmFetcher(use_mock=use_mock)
-        self.gestures = GestureRecognizer(use_mock=use_mock)
+        self.films = FilmFetcher(use_mock=mock_filmdb)
+        self.gestures = GestureRecognizer(use_mock=mock_camera, camera_url=camera_url)
         self.display = DisplayManager()
     
     def run(self):
@@ -667,7 +691,17 @@ def main():
     parser.add_argument(
         "--mock", "-m",
         action="store_true",
-        help="Use mock film data (for testing without API key)"
+        help="Enable all mock modes (shorthand for --mock-camera --mock-filmdb)"
+    )
+    parser.add_argument(
+        "--mock-camera",
+        action="store_true",
+        help="Use random test images instead of real camera"
+    )
+    parser.add_argument(
+        "--mock-filmdb",
+        action="store_true",
+        help="Use mock film data instead of real OMDb API"
     )
     parser.add_argument(
         "--language", "-l",
@@ -679,10 +713,24 @@ def main():
         action="store_true",
         help="Use keyboard input instead of speech (for testing)"
     )
+    parser.add_argument(
+        "--camera-url", "-c",
+        default=os.environ.get("CAMERA_URL"),
+        help="Phone camera URL (or set CAMERA_URL env var). E.g., 'http://192.168.1.100:8080/video'"
+    )
     
     args = parser.parse_args()
     
-    controller = FilmRatingController(use_mock=args.mock, language=args.language)
+    # --mock enables both mock modes
+    mock_camera = args.mock_camera or args.mock
+    mock_filmdb = args.mock_filmdb or args.mock
+    
+    controller = FilmRatingController(
+        mock_camera=mock_camera,
+        mock_filmdb=mock_filmdb,
+        language=args.language,
+        camera_url=args.camera_url
+    )
     
     # Override speech with keyboard input if requested
     if args.keyboard:

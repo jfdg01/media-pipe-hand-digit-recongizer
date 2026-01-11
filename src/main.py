@@ -10,17 +10,32 @@ Orchestrates the multimodal film rating experience:
 5. Movie poster is displayed with the user's score
 """
 
+import glob
 import os
+import random
 import sys
 import time
+import warnings
 from dataclasses import dataclass
 from typing import Optional
 from io import BytesIO
+
+# Suppress verbose TensorFlow, CUDA, and MediaPipe logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TF logging (0=all, 3=none)
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Suppress oneDNN messages
+os.environ['ABSL_MIN_LOG_LEVEL'] = '2'  # Suppress abseil logging
+os.environ['GLOG_minloglevel'] = '2'  # Suppress glog messages
+warnings.filterwarnings('ignore', category=FutureWarning)  # Suppress FutureWarnings
 
 import cv2
 import numpy as np
 import requests
 import speech_recognition as sr
+
+# Suppress MediaPipe protobuf warnings
+import logging
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -197,7 +212,7 @@ class FilmFetcher:
         
         # Return a default mock film
         print(f"⚠️  '{title}' not in mock data. Returning 'The Matrix' as fallback.")
-        return MOCK_FILMS["the matrix"]
+        return MOCK_FILMS["matrix"]
     
     def _search_api(self, title: str) -> Optional[FilmData]:
         """Search using the real OMDb API."""
@@ -248,8 +263,11 @@ class GestureRecognizer:
         "five": 5
     }
     
-    def __init__(self, model_path: str = "digit_model_v1/gesture_recognizer.task"):
+    def __init__(self, model_path: str = "models/gesture_recognizer.task", 
+                 use_mock: bool = False, test_data_path: str = "data/test_images"):
         self.model_path = model_path
+        self.use_mock = use_mock
+        self.test_data_path = test_data_path
         self.recognizer = None
         
         if os.path.exists(model_path):
@@ -258,6 +276,80 @@ class GestureRecognizer:
             self.recognizer = vision.GestureRecognizer.create_from_options(options)
         else:
             print(f"⚠️  Gesture model not found at {model_path}")
+    
+    def recognize(self) -> Optional[int]:
+        """
+        Recognize gesture - from camera or test image depending on mock mode.
+        
+        Returns:
+            Score (1-5) or None if failed.
+        """
+        if self.use_mock:
+            return self._recognize_from_test_image()
+        return self.recognize_from_camera()
+    
+    def _recognize_from_test_image(self) -> Optional[int]:
+        """
+        Pick a random test image and run gesture recognition on it.
+        
+        Returns:
+            Score (1-5) or None if failed.
+        """
+        if not self.recognizer:
+            print("❌ Gesture recognizer not initialized.")
+            return self._fallback_input()
+        
+        # Find all test images
+        image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']
+        image_paths = []
+        for ext in image_extensions:
+            image_paths.extend(glob.glob(os.path.join(self.test_data_path, ext)))
+        
+        if not image_paths:
+            print(f"❌ No test images found in {self.test_data_path}")
+            return self._fallback_input()
+        
+        # Pick a random image
+        random_image = random.choice(image_paths)
+        filename = os.path.basename(random_image)
+        
+        print(f"\n🎲 Mock mode: Using random test image '{filename}'")
+        
+        # Load and process the image
+        try:
+            image = mp.Image.create_from_file(random_image)
+            result = self.recognizer.recognize(image)
+            
+            if result.gestures:
+                category = result.gestures[0][0]
+                gesture_name = category.category_name
+                confidence = category.score
+                
+                if gesture_name in self.GESTURE_TO_SCORE:
+                    score = self.GESTURE_TO_SCORE[gesture_name]
+                    print(f"✅ Gesture recognized: {gesture_name} (Score: {score}, Confidence: {confidence:.2f})")
+                    
+                    # Display the test image briefly (fullscreen)
+                    img_cv = cv2.imread(random_image)
+                    if img_cv is not None:
+                        cv2.putText(img_cv, f"Detected: {gesture_name} ({score}/5)", (10, 30),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                        window_name = "Test Image - Gesture Recognition"
+                        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                        cv2.imshow(window_name, img_cv)
+                        print("Press any key to continue...")
+                        cv2.waitKey(0)
+                        cv2.destroyAllWindows()
+                    
+                    return score
+            
+            print(f"⚠️  No valid gesture detected in image.")
+            return self._fallback_input()
+            
+        except Exception as e:
+            print(f"❌ Error processing image: {e}")
+            return self._fallback_input()
     
     def recognize_from_camera(self, timeout_seconds: int = 15) -> Optional[int]:
         """
@@ -331,6 +423,8 @@ class GestureRecognizer:
                 cv2.putText(frame, f"Time: {int(timeout_seconds - elapsed)}s", (10, 60),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
                 
+                cv2.namedWindow("Show Your Score (1-5)", cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty("Show Your Score (1-5)", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                 cv2.imshow("Show Your Score (1-5)", frame)
                 
                 # If we have a stable gesture
@@ -394,54 +488,58 @@ class DisplayManager:
     @staticmethod
     def create_rating_display(film: FilmData, user_score: int) -> np.ndarray:
         """Create a display image with film info and user score."""
-        # Create a canvas
-        canvas_width = 600
-        canvas_height = 500
+        # Get screen size for fullscreen display
+        # Use a large canvas that will be resized to fit
+        canvas_width = 1200
+        canvas_height = 900
         canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
         canvas[:] = (30, 30, 30)  # Dark gray background
         
         # Download and add poster
         poster = DisplayManager.download_poster(film.poster_url)
         if poster is not None:
-            # Resize poster to fit
-            poster_height = 350
+            # Resize poster to fit (larger for fullscreen)
+            poster_height = 650
             aspect = poster.shape[1] / poster.shape[0]
             poster_width = int(poster_height * aspect)
             poster_resized = cv2.resize(poster, (poster_width, poster_height))
             
             # Center the poster
             x_offset = (canvas_width - poster_width) // 2
-            y_offset = 20
+            y_offset = 30
             
             # Paste poster onto canvas
             canvas[y_offset:y_offset+poster_height, 
                    x_offset:x_offset+poster_width] = poster_resized
         
-        # Add text info
-        y_text = 400
+        # Add text info below poster
+        y_text = 720
         
-        # Title
-        cv2.putText(canvas, film.title, (20, y_text),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        # Title (larger font)
+        cv2.putText(canvas, film.title, (40, y_text),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
         
         # Year and runtime
-        cv2.putText(canvas, f"{film.year} | {film.runtime}", (20, y_text + 30),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
+        cv2.putText(canvas, f"{film.year} | {film.runtime}", (40, y_text + 40),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (180, 180, 180), 1)
         
         # IMDb rating
-        cv2.putText(canvas, f"IMDb: {film.imdb_rating}", (20, y_text + 55),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 215, 0), 1)
+        cv2.putText(canvas, f"IMDb: {film.imdb_rating}", (40, y_text + 75),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 215, 0), 2)
         
-        # User score with stars
-        stars = "★" * user_score + "☆" * (5 - user_score)
-        cv2.putText(canvas, f"Your Score: {stars}", (20, y_text + 85),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 100), 2)
+        # User score with ASCII stars (OpenCV can't render Unicode)
+        # Use [*] for filled and [ ] for empty
+        stars_filled = "[*]" * user_score
+        stars_empty = "[ ]" * (5 - user_score)
+        score_text = f"Your Score: {stars_filled}{stars_empty} ({user_score}/5)"
+        cv2.putText(canvas, score_text, (40, y_text + 120),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 100), 2)
         
         return canvas
     
     @staticmethod
     def show_result(film: FilmData, user_score: int, window_name: str = "Film Rating Result"):
-        """Display the final result in a window."""
+        """Display the final result in a fullscreen window."""
         display = DisplayManager.create_rating_display(film, user_score)
         
         print(f"\n{'='*50}")
@@ -453,9 +551,26 @@ class DisplayManager:
         print(f"📊 YOUR SCORE: {'★' * user_score}{'☆' * (5 - user_score)} ({user_score}/5)")
         print(f"{'='*50}")
         
+        # Create fullscreen window
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.imshow(window_name, display)
-        print("\nPress any key to close...")
-        cv2.waitKey(0)
+        print("\nPress any key to close (auto-closes in 10 seconds)...")
+        
+        # Use a loop with timeout to handle key events (fixes Wayland/Qt issues)
+        start_time = time.time()
+        timeout = 10  # Auto-close after 10 seconds
+        while True:
+            key = cv2.waitKey(100)  # Check every 100ms
+            if key != -1:  # Any key pressed
+                break
+            if time.time() - start_time > timeout:
+                print("Auto-closing window...")
+                break
+            # Check if window was closed manually
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        
         cv2.destroyAllWindows()
 
 
@@ -476,9 +591,10 @@ class FilmRatingController:
             use_mock: If True, use mock film data instead of real API.
             language: Language code for speech recognition.
         """
+        self.use_mock = use_mock
         self.speech = SpeechRecognizer(language=language)
         self.films = FilmFetcher(use_mock=use_mock)
-        self.gestures = GestureRecognizer()
+        self.gestures = GestureRecognizer(use_mock=use_mock)
         self.display = DisplayManager()
     
     def run(self):
@@ -520,7 +636,7 @@ class FilmRatingController:
         print(f"\n📊 STEP 3: Rate '{film.title}'")
         print("-" * 40)
         
-        score = self.gestures.recognize_from_camera()
+        score = self.gestures.recognize()
         
         if not score:
             print("❌ Could not get score. Exiting.")

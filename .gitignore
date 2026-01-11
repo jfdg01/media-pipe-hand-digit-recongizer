@@ -18,8 +18,9 @@ build/
 *.egg
 
 # MediaPipe / ML Models
-*.task
-*.tflite
+models/*.task
+models/*.tflite
+digit_model_v1/
 checkpoint/
 
 # Datasets
@@ -38,3 +39,4 @@ dataset/
 .DS_Store
 Thumbs.db
 external/
+coco_tiny.zip

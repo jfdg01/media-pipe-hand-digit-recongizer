@@ -49,15 +49,13 @@ class GestureRecognizer:
         else:
             print(f"⚠️  Gesture model not found at {model_path}")
     
-    def recognize(self, timeout_seconds: int = 15) -> Optional[int]:
+    def recognize(self) -> Optional[int]:
         """
         Open camera and wait for a valid gesture (1-5).
-        
-        Args:
-            timeout_seconds: Maximum time to wait for a gesture.
+        Press 'S' to skip and enter score manually.
         
         Returns:
-            Score (1-5) or None if failed/timeout.
+            Score (1-5) or None if failed.
         """
         if not self.recognizer:
             print("❌ Gesture recognizer not initialized.")
@@ -80,9 +78,8 @@ class GestureRecognizer:
         
         print("\n✋ Show your score (1-5 fingers) to the camera...")
         print("   Hold your gesture steady for recognition.")
-        print(f"   (Timeout in {timeout_seconds} seconds)\n")
+        print("   Press 'S' to skip and enter manually.\n")
         
-        start_time = time.time()
         stable_gesture = None
         stable_count = 0
         required_stable_frames = 10  # Need 10 consistent frames
@@ -96,12 +93,6 @@ class GestureRecognizer:
                 # Flip vertically if using phone camera (IP Webcam orientation fix)
                 if self.camera_url:
                     frame = cv2.flip(frame, 0)  # 0 = vertical flip
-                
-                # Check timeout
-                elapsed = time.time() - start_time
-                if elapsed > timeout_seconds:
-                    print("⏰ Timeout reached.")
-                    break
                 
                 # Convert frame for MediaPipe
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -132,7 +123,7 @@ class GestureRecognizer:
                 display_text = f"Gesture: {stable_gesture or 'None'} ({stable_count}/{required_stable_frames})"
                 cv2.putText(frame, display_text, (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-                cv2.putText(frame, f"Time: {int(timeout_seconds - elapsed)}s", (10, 60),
+                cv2.putText(frame, "Press 'S' to skip", (10, 60),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
                 
                 cv2.namedWindow("Show Your Score (1-5)", cv2.WINDOW_NORMAL)
@@ -147,9 +138,10 @@ class GestureRecognizer:
                     cv2.destroyAllWindows()
                     return score
                 
-                # Check for 'q' to quit
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    print("❌ Cancelled by user.")
+                # Check for 'S' to skip to manual input
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('s') or key == ord('S'):
+                    print("⏭️  Skipping to manual input...")
                     break
                     
         finally:

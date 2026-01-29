@@ -26,11 +26,18 @@ import logging
 logging.getLogger('mediapipe').setLevel(logging.ERROR)
 
 # Add src to path for direct execution
+# Add src to path for direct execution
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+# sys.path.insert(0, str(Path(__file__).parent))
 
-from controller import FilmRatingController
+try:
+    from .controller import FilmRatingController
+except ImportError:
+    # Fallback for direct execution without -m
+    sys.path.insert(0, str(Path(__file__).parent))
+    from controller import FilmRatingController
+
 
 
 def main():

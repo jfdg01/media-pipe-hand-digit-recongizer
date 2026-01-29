@@ -12,7 +12,7 @@ import numpy as np
 import requests
 from PIL import Image
 
-from models import FilmData
+from .models import FilmData
 
 
 class DisplayManager:

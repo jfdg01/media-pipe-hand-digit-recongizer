@@ -36,7 +36,7 @@ class GestureRecognizer:
         "five": 5
     }
     
-    def __init__(self, model_path: str = "models/gesture_recognizer.task", 
+    def __init__(self, model_path: str = "digit_model_v1/gesture_recognizer.task", 
                  camera_url: str = None):
         self.model_path = model_path
         self.camera_url = camera_url  # For IP Webcam (phone camera)

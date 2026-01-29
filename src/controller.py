@@ -3,10 +3,10 @@ Main controller for the Film Rating System.
 Orchestrates the multimodal film rating experience.
 """
 
-from speech import SpeechRecognizer
-from film_api import FilmFetcher
-from gestures import GestureRecognizer
-from display import DisplayManager
+from .speech import SpeechRecognizer
+from .film_api import FilmFetcher
+from .gestures import GestureRecognizer
+from .display import DisplayManager
 
 
 class FilmRatingController:

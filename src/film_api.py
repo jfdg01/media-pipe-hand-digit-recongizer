@@ -8,7 +8,7 @@ from typing import Optional
 
 import requests
 
-from models import FilmData
+from .models import FilmData
 
 
 class FilmFetcher:

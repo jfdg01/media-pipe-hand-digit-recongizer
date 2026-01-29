@@ -7,7 +7,6 @@ __pycache__/
 env/
 venv/
 mp_env/
-.env
 .venv
 pip-log.txt
 pip-delete-this-directory.txt
@@ -18,9 +17,7 @@ build/
 *.egg
 
 # MediaPipe / ML Models
-models/*.task
-models/*.tflite
-digit_model_v1/
+*.tflite
 checkpoint/
 
 # Datasets
@@ -39,4 +36,3 @@ dataset/
 .DS_Store
 Thumbs.db
 external/
-coco_tiny.zip

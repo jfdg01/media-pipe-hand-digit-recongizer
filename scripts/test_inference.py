@@ -6,7 +6,7 @@ import glob
 
 # Path to your new model and the test folder
 model_path = 'digit_model_v1/gesture_recognizer.task'
-test_folder = 'test_data'
+test_folder = 'data/test_images'
 
 if not os.path.exists(model_path):
     print(f"Error: Model not found at {model_path}")
@@ -44,9 +44,9 @@ for image_path in image_paths:
     filename = os.path.basename(image_path).lower()
     expected_label = "none"
     
-    # Check for word labels in the filename
+    # Check for word labels or digits in the filename
     for digit, word in digit_map.items():
-        if word in filename:
+        if word in filename or digit in filename:
             expected_label = word
             break
     
